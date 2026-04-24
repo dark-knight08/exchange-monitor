@@ -1,0 +1,14 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "python main.py run --host 0.0.0.0"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[deploy.env]
+DATABASE_PATH = "/app/data/hkex_monitor.db"
+PYTHONUNBUFFERED = "1"

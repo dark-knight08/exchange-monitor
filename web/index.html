@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HKEX Multi-Asset Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-tertiary: #1f2937;
+            --bg-hover: #374151;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --text-tertiary: #6b7280;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-orange: #f59e0b;
+            --border-color: #374151;
+            --radius: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            padding: 1.5rem;
+            position: fixed;
+            height: 100vh;
+            width: 260px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-blue), #06b6d4);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .nav-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .nav-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            letter-spacing: 0.5px;
+            margin-bottom: 0.75rem;
+            padding-left: 0.75rem;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.625rem 0.75rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .asset-badge {
+            margin-left: auto;
+            background: var(--bg-tertiary);
+            padding: 0.125rem 0.5rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
+        }
+
+        .nav-item.active .asset-badge {
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 260px;
+            flex: 1;
+            padding: 1.5rem 2rem;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .header-title h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .header-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+        }
+
+        .status-dot.disconnected {
+            background: var(--accent-red);
+        }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .summary-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .summary-card:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .summary-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .summary-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .summary-icon.equity { background: rgba(59, 130, 246, 0.15); }
+        .summary-icon.etf { background: rgba(139, 92, 246, 0.15); }
+        .summary-icon.derivative { background: rgba(6, 182, 212, 0.15); }
+        .summary-icon.cbbc { background: rgba(245, 158, 11, 0.15); }
+
+        .summary-label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .summary-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 0.25rem;
+        }
+
+        .summary-change {
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        .positive { color: var(--accent-green); }
+        .negative { color: var(--accent-red); }
+
+        /* Chart Section */
+        .chart-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .chart-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .chart-tabs {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .chart-tab {
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .chart-tab.active {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .chart-container {
+            height: 300px;
+            position: relative;
+        }
+
+        /* Filters */
+        .filters-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+        }
+
+        .search-box input {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            outline: none;
+            width: 200px;
+        }
+
+        /* Data Table */
+        .table-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            overflow: hidden;
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        .data-table thead {
+            background: var(--bg-tertiary);
+        }
+
+        .data-table th {
+            padding: 0.875rem 1rem;
+            text-align: left;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .data-table td {
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .data-table tr:hover td {
+            background: var(--bg-hover);
+        }
+
+        /* Table Cells */
+        .cell-rank {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            background: var(--bg-tertiary);
+        }
+
+        .cell-rank.top-3 {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            color: #000;
+        }
+
+        .cell-symbol {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .symbol-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: white;
+        }
+
+        .symbol-icon.equity { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+        .symbol-icon.etf { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+        .symbol-icon.future { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+        .symbol-icon.option { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+        .symbol-icon.derivative { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+        .symbol-icon.cbbc { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .symbol-icon.warrant { background: linear-gradient(135deg, #ec4899, #db2777); }
+
+        .symbol-code {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .symbol-name {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+
+        .type-badge {
+            display: inline-block;
+            padding: 0.25rem 0.625rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .type-equity { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+        .type-etf { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+        .type-future { background: rgba(6, 182, 212, 0.15); color: #67e8f9; }
+        .type-option { background: rgba(20, 184, 166, 0.15); color: #2dd4bf; }
+        .type-derivative { background: rgba(6, 182, 212, 0.15); color: #67e8f9; }
+        .type-cbbc { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+        .type-warrant { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
+
+        .price-cell {
+            font-family: 'SF Mono', monospace;
+            font-weight: 600;
+        }
+
+        .change-cell {
+            font-weight: 500;
+        }
+
+        .volume-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .volume-track {
+            flex: 1;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+            min-width: 60px;
+        }
+
+        .volume-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+
+        /* Changes Section */
+        .changes-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .changes-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+        }
+
+        .changes-card h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .change-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.625rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Loading & Empty States */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 3rem;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--bg-tertiary);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .sidebar {
+                display: none;
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .changes-section {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">HK</div>
+                <div class="logo-text">HKEX Monitor</div>
+            </div>
+            <nav>
+                <div class="nav-section">
+                    <div class="nav-title">Market Overview</div>
+                    <div class="nav-item active" data-view="overview">Dashboard</div>
+                    <div class="nav-item" data-view="equities">Equities</div>
+                    <div class="nav-item" data-view="etfs">ETFs</div>
+                    <div class="nav-item" data-view="futures">Futures</div>
+                    <div class="nav-item" data-view="options">Options</div>
+                    <div class="nav-item" data-view="cbbc">CBBCs & Warrants</div>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="header-title">
+                    <h1>Market Overview</h1>
+                    <div class="header-subtitle">Real-time data across all asset classes</div>
+                </div>
+                <div class="connection-status">
+                    <span class="status-dot" id="status-dot"></span>
+                    <span id="status-text">Connecting...</span>
+                </div>
+            </header>
+
+            <!-- Summary Cards -->
+            <div class="summary-grid" id="summary-cards">
+                <div class="loading"><div class="spinner"></div></div>
+            </div>
+
+            <!-- Market Chart -->
+            <div class="chart-section">
+                <div class="chart-header">
+                    <div class="chart-title">Market Performance by Asset Class</div>
+                    <div class="chart-tabs">
+                        <div class="chart-tab active" data-period="1D">1D</div>
+                        <div class="chart-tab" data-period="1W">1W</div>
+                        <div class="chart-tab" data-period="1M">1M</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="marketChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters-section">
+                <div>
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="equity">Equities</button>
+                    <button class="filter-btn" data-filter="etf">ETFs</button>
+                    <button class="filter-btn" data-filter="future">Futures</button>
+                    <button class="filter-btn" data-filter="option">Options</button>
+                    <button class="filter-btn" data-filter="cbbc">CBBCs</button>
+                    <button class="filter-btn" data-filter="warrant">Warrants</button>
+                </div>
+                <div class="search-box">
+                    <input type="text" placeholder="Search symbol..." id="search-input">
+                </div>
+            </div>
+
+            <!-- Data Table -->
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Symbol</th>
+                            <th>Type</th>
+                            <th>Price</th>
+                            <th>Change</th>
+                            <th>Volume</th>
+                            <th>Turnover</th>
+                        </tr>
+                    </thead>
+                    <tbody id="data-table-body">
+                        <tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Top Movers -->
+            <div class="changes-section">
+                <div class="changes-card">
+                    <h3 class="positive">Top Gainers</h3>
+                    <div id="top-gainers">Loading...</div>
+                </div>
+                <div class="changes-card">
+                    <h3 class="negative">Top Losers</h3>
+                    <div id="top-losers">Loading...</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Configuration - auto-detect API endpoint
+        // Works for: local development, Railway, Render, and same-origin deployments
+        const API_BASE_URL = (() => {
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+
+            // Local development
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                return 'http://localhost:8000/api/v1';
+            }
+
+            // Production (Railway, Render, etc.) - same origin
+            // The API is served from the same domain as the dashboard
+            return `${window.location.protocol}//${hostname}${port ? ':' + port : ''}/api/v1`;
+        })();
+        
+        // State
+        let currentFilter = 'all';
+        let marketData = [];
+        let chart = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAllData();
+            initChart();
+            setupEventListeners();
+            
+            // Auto refresh every 30 seconds
+            setInterval(loadAllData, 30000);
+        });
+
+        // Load all data
+        async function loadAllData() {
+            try {
+                updateConnectionStatus(true);
+                
+                    // Load all asset classes in parallel
+                const [equities, etfs, futures, options, cbbcs, warrants] = await Promise.all([
+                    fetchAssets('equity'),
+                    fetchAssets('etf'),
+                    fetchAssets('future'),
+                    fetchAssets('option'),
+                    fetchAssets('cbbc'),
+                    fetchAssets('warrant')
+                ]);
+                
+                marketData = [
+                    ...(equities || []),
+                    ...(etfs || []),
+                    ...(futures || []),
+                    ...(options || []),
+                    ...(cbbcs || []),
+                    ...(warrants || [])
+                ];
+                
+                renderTable();
+                updateSummaryCards();
+                updateTopMovers();
+                
+            } catch (error) {
+                console.error('Failed to load data:', error);
+                updateConnectionStatus(false);
+            }
+        }
+
+        async function fetchAssets(assetClass) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/assets/${assetClass}?limit=50`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                return data.data || [];
+            } catch (error) {
+                console.warn(`Failed to fetch ${assetClass}:`, error);
+                return [];
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const dot = document.getElementById('status-dot');
+            const text = document.getElementById('status-text');
+            
+            if (connected) {
+                dot.classList.remove('disconnected');
+                text.textContent = 'Connected';
+            } else {
+                dot.classList.add('disconnected');
+                text.textContent = 'Disconnected';
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('data-table-body');
+            
+            // Filter data
+            let filtered = currentFilter === 'all' 
+                ? marketData 
+                : marketData.filter(d => d.asset_class === currentFilter);
+            
+            // Search filter
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            if (searchTerm) {
+                filtered = filtered.filter(d => 
+                    d.symbol.toLowerCase().includes(searchTerm) ||
+                    d.name.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            // Sort by turnover
+            filtered.sort((a, b) => (b.turnover || 0) - (a.turnover || 0));
+            
+            // Get max volume for bar scaling
+            const maxVolume = Math.max(...filtered.map(d => d.volume || 0), 1);
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-secondary)">No data available</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = filtered.slice(0, 50).map((item, index) => {
+                const change = item.change_percent || 0;
+                const changeClass = change >= 0 ? 'positive' : 'negative';
+                const changeSymbol = change >= 0 ? '+' : '';
+                const volumePercent = ((item.volume || 0) / maxVolume * 100).toFixed(1);
+                
+                return `
+                    <tr>
+                        <td><span class="cell-rank ${index < 3 ? 'top-3' : ''}">${index + 1}</span></td>
+                        <td>
+                            <div class="cell-symbol">
+                                <div class="symbol-icon ${item.asset_class}">${item.symbol.slice(0, 2)}</div>
+                                <div>
+                                    <div class="symbol-code">${item.symbol}</div>
+                                    <div class="symbol-name">${item.name}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="type-badge type-${item.asset_class}">${item.asset_class}</span></td>
+                        <td class="price-cell">${formatPrice(item.price)}</td>
+                        <td class="change-cell ${changeClass}">${changeSymbol}${change.toFixed(2)}%</td>
+                        <td>
+                            <div class="volume-bar">
+                                <div class="volume-track">
+                                    <div class="volume-fill ${changeClass}" style="width: ${volumePercent}%"></div>
+                                </div>
+                                <span>${formatVolume(item.volume)}</span>
+                            </div>
+                        </td>
+                        <td class="price-cell">${formatTurnover(item.turnover)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateSummaryCards() {
+            const byClass = {};
+            marketData.forEach(d => {
+                if (!byClass[d.asset_class]) {
+                    byClass[d.asset_class] = { count: 0, totalTurnover: 0, advancers: 0, decliners: 0 };
+                }
+                byClass[d.asset_class].count++;
+                byClass[d.asset_class].totalTurnover += d.turnover || 0;
+                if ((d.change_percent || 0) > 0) byClass[d.asset_class].advancers++;
+                else if ((d.change_percent || 0) < 0) byClass[d.asset_class].decliners++;
+            });
+            
+                const cards = [
+                { class: 'equity', icon: '🏢', label: 'Equities', data: byClass.equity },
+                { class: 'etf', icon: '📋', label: 'ETFs', data: byClass.etf },
+                { class: 'future', icon: '📈', label: 'Futures', data: byClass.future },
+                { class: 'option', icon: '⚡', label: 'Options', data: byClass.option },
+                { class: 'cbbc', icon: '🎯', label: 'CBBCs/Warrants', data: byClass.cbbc || byClass.warrant },
+            ];
+            
+            document.getElementById('summary-cards').innerHTML = cards.map(card => {
+                const data = card.data || { count: 0, totalTurnover: 0, advancers: 0, decliners: 0 };
+                const netChange = data.advancers - data.decliners;
+                const changeClass = netChange >= 0 ? 'positive' : 'negative';
+                
+                return `
+                    <div class="summary-card" onclick="setFilter('${card.class}')">
+                        <div class="summary-card-header">
+                            <div class="summary-icon ${card.class}">${card.icon}</div>
+                            <div class="summary-label">${card.label}</div>
+                        </div>
+                        <div class="summary-value">${data.count}</div>
+                        <div class="summary-change ${changeClass}">
+                            ${netChange >= 0 ? '▲' : '▼'} ${Math.abs(netChange)} net
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateTopMovers() {
+            const sorted = [...marketData].sort((a, b) => 
+                Math.abs(b.change_percent || 0) - Math.abs(a.change_percent || 0)
+            );
+            
+            const gainers = sorted.filter(d => (d.change_percent || 0) > 0).slice(0, 5);
+            const losers = sorted.filter(d => (d.change_percent || 0) < 0).slice(0, 5);
+            
+            document.getElementById('top-gainers').innerHTML = gainers.length ? gainers.map(d => `
+                <div class="change-item">
+                    <span>${d.symbol}</span>
+                    <span class="positive">+${(d.change_percent || 0).toFixed(2)}%</span>
+                </div>
+            `).join('') : '<div style="color:var(--text-secondary);padding:1rem;">No gainers</div>';
+            
+            document.getElementById('top-losers').innerHTML = losers.length ? losers.map(d => `
+                <div class="change-item">
+                    <span>${d.symbol}</span>
+                    <span class="negative">${(d.change_percent || 0).toFixed(2)}%</span>
+                </div>
+            `).join('') : '<div style="color:var(--text-secondary);padding:1rem;">No losers</div>';
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('marketChart');
+            if (!ctx) return;
+            
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['09:30', '10:00', '10:30', '11:00', '11:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00'],
+                    datasets: [
+                        {
+                            label: 'Equities',
+                            data: [0, 0.2, 0.5, 0.3, 0.8, 0.6, 1.2, 1.0, 1.5, 1.3, 1.8, 2.1],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'ETFs',
+                            data: [0, 0.1, 0.3, 0.2, 0.6, 0.4, 0.8, 0.7, 1.1, 0.9, 1.3, 1.5],
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#9ca3af' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#374151' },
+                            ticks: { color: '#9ca3af' }
+                        },
+                        y: {
+                            grid: { color: '#374151' },
+                            ticks: { color: '#9ca3af' },
+                            title: { display: true, text: 'Change %', color: '#9ca3af' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function setupEventListeners() {
+            // Filter buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentFilter = btn.dataset.filter;
+                    renderTable();
+                });
+            });
+            
+            // Search
+            document.getElementById('search-input').addEventListener('input', renderTable);
+            
+            // Chart tabs
+            document.querySelectorAll('.chart-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                });
+            });
+        }
+
+        function setFilter(assetClass) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            const btn = document.querySelector(`[data-filter="${assetClass}"]`);
+            if (btn) btn.classList.add('active');
+            currentFilter = assetClass;
+            renderTable();
+        }
+
+        // Format helpers
+        function formatPrice(price) {
+            if (!price) return '-';
+            return price >= 1000 ? price.toLocaleString('en-HK', {maximumFractionDigits: 0}) : price.toFixed(2);
+        }
+
+        function formatVolume(volume) {
+            if (!volume) return '-';
+            if (volume >= 1e9) return (volume / 1e9).toFixed(2) + 'B';
+            if (volume >= 1e6) return (volume / 1e6).toFixed(2) + 'M';
+            if (volume >= 1e3) return (volume / 1e3).toFixed(1) + 'K';
+            return volume.toString();
+        }
+
+        function formatTurnover(turnover) {
+            if (!turnover) return '-';
+            if (turnover >= 1e12) return 'HK$' + (turnover / 1e12).toFixed(2) + 'T';
+            if (turnover >= 1e9) return 'HK$' + (turnover / 1e9).toFixed(2) + 'B';
+            if (turnover >= 1e6) return 'HK$' + (turnover / 1e6).toFixed(2) + 'M';
+            return 'HK$' + turnover.toLocaleString();
+        }
+    </script>
+</body>
+</html>

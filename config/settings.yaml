@@ -1,0 +1,238 @@
+# HKEX Market Monitor Configuration
+
+market:
+  exchange: "HKEX"
+  timezone: "Asia/Hong_Kong"
+  trading_hours:
+    pre_market: "09:00-09:30"
+    morning: "09:30-12:00"
+    lunch: "12:00-13:00"
+    afternoon: "13:00-16:00"
+    close: "16:00"
+
+asset_classes:
+  equities:
+    name: "Equities"
+    description: "Hong Kong Listed Stocks"
+    top_count: 50
+    metrics:
+      - price
+      - change
+      - change_percent
+      - volume
+      - turnover
+      - market_cap
+      - pe_ratio
+      - dividend_yield
+    data_sources:
+      - hkex_website
+      - bloomberg
+      - yahoo_finance
+    
+  etfs:
+    name: "ETFs"
+    description: "Exchange Traded Funds"
+    top_count: 30
+    metrics:
+      - price
+      - change
+      - change_percent
+      - volume
+      - turnover
+      - nav
+      - aum
+      - expense_ratio
+    data_sources:
+      - hkex_website
+      - etf_provider_feeds
+      
+  derivatives:
+    name: "Derivatives"
+    description: "Index Futures and Options"
+    subtypes:
+      - name: "HSI Futures"
+        code: "HSI"
+        contract_size: 50
+      - name: "HSCEI Futures"
+        code: "HHI"
+        contract_size: 50
+      - name: "Mini-HSI Futures"
+        code: "MHI"
+        contract_size: 10
+      - name: "HSI Options"
+        code: "HSI"
+        option_types: ["call", "put"]
+      - name: "Stock Options"
+        description: "Single stock options on liquid equities"
+    metrics:
+      - price
+      - change
+      - volume
+      - open_interest
+      - implied_volatility
+      - delta
+      - gamma
+      - theta
+      - vega
+    data_sources:
+      - hkex_derivatives
+      - otc_market_data
+      
+  cbbc_warrants:
+    name: "CBBCs & Warrants"
+    description: "Callable Bull/Bear Contracts and Warrants"
+    subtypes:
+      - name: "CBBC"
+        description: "Callable Bull/Bear Contracts"
+      - name: "Warrant"
+        description: "Equity Warrants"
+    metrics:
+      - price
+      - change
+      - change_percent
+      - volume
+      - turnover
+      - gearing
+      - premium
+      - implied_volatility
+      - delta
+      - call_level
+      - entitlement_ratio
+    data_sources:
+      - hkex_website
+      - issuer_feeds
+
+collection:
+  frequency:
+    realtime: 30  # seconds
+    intraday: 5   # minutes
+    daily: "16:30"  # time after market close
+  
+  snapshot_schedule:
+    pre_market: "08:45"
+    market_open: "09:30"
+    mid_morning: "10:45"
+    pre_lunch: "11:45"
+    post_lunch: "13:00"
+    mid_afternoon: "14:30"
+    pre_close: "15:45"
+    market_close: "16:30"
+    after_hours: "17:00"
+
+alerts:
+  price_change_threshold: 5.0  # percent
+  volume_spike_multiplier: 3.0  # x average
+  unusual_activity:
+    enabled: true
+    check_interval: 300  # seconds
+  
+  notifications:
+    enabled: true
+    channels:
+      - type: "email"
+        enabled: false
+        smtp_server: ""
+        smtp_port: 587
+        username: ""
+        password: ""
+        to_addresses: []
+      
+      - type: "slack"
+        enabled: false
+        webhook_url: ""
+        channel: "#hkex-alerts"
+      
+      - type: "webhook"
+        enabled: false
+        url: ""
+        headers: {}
+
+dashboard:
+  default_view: "all"
+  refresh_interval: 30  # seconds
+  show_charts: true
+  chart_periods: ["1D", "1W", "1M", "3M", "6M", "1Y"]
+  
+  views:
+    - id: "overview"
+      name: "Market Overview"
+      asset_classes: ["equities", "etfs", "derivatives", "cbbc_warrants"]
+    
+    - id: "equities"
+      name: "Top Equities"
+      asset_class: "equities"
+      columns: ["rank", "symbol", "name", "price", "change", "volume", "turnover", "market_cap"]
+    
+    - id: "etfs"
+      name: "ETFs"
+      asset_class: "etfs"
+      columns: ["rank", "symbol", "name", "price", "change", "volume", "nav", "aum"]
+    
+    - id: "derivatives"
+      name: "Derivatives"
+      asset_class: "derivatives"
+      columns: ["symbol", "expiry", "strike", "price", "volume", "open_interest", "iv"]
+    
+    - id: "cbbc_warrants"
+      name: "CBBCs & Warrants"
+      asset_class: "cbbc_warrants"
+      columns: ["symbol", "name", "underlying", "price", "gearing", "premium", "call_level"]
+    
+    - id: "movers"
+      name: "Top Movers"
+      filter: "gainers_and_losers"
+      limit: 20
+    
+    - id: "volume_leaders"
+      name: "Volume Leaders"
+      sort_by: "volume"
+      limit: 20
+    
+    - id: "alerts"
+      name: "Active Alerts"
+      filter: "alerts"
+
+database:
+  type: "sqlite"
+  path: "data/hkex_monitor.db"
+  backup_enabled: true
+  backup_interval: "daily"
+  retention_days: 90
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  cors_origins: ["http://localhost:3000", "http://127.0.0.1:5500"]
+  rate_limit: 100  # requests per minute
+  
+  endpoints:
+    - path: "/api/v1/snapshot/current"
+      description: "Current market snapshot"
+    
+    - path: "/api/v1/snapshot/daily/{date}"
+      description: "Daily snapshot for specific date"
+    
+    - path: "/api/v1/assets/{asset_class}"
+      description: "Assets by class with filtering"
+    
+    - path: "/api/v1/changes/daily"
+      description: "Daily changes across all assets"
+    
+    - path: "/api/v1/changes/period"
+      description: "Changes over custom period"
+    
+    - path: "/api/v1/alerts"
+      description: "Active and historical alerts"
+    
+    - path: "/api/v1/history/{symbol}"
+      description: "Historical data for symbol"
+    
+    - path: "/ws/market"
+      description: "WebSocket for real-time updates"
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/hkex_monitor.log"
+  max_size: "10MB"
+  backup_count: 5
